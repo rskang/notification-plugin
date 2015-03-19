@@ -15,13 +15,22 @@ package com.tikal.hudson.plugins.notification;
 
 import com.tikal.hudson.plugins.notification.model.BuildState;
 import com.tikal.hudson.plugins.notification.model.JobState;
+import com.tikal.hudson.plugins.notification.model.UserData;
 import com.tikal.hudson.plugins.notification.model.ScmState;
 import hudson.EnvVars;
+import hudson.FilePath;
 import hudson.model.*;
 import jenkins.model.Jenkins;
 
+import hudson.scm.ChangeLogSet;
+import hudson.scm.ChangeLogSet.Entry;
+import hudson.scm.SubversionChangeLogSet.LogEntry;
+
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 
 @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -33,7 +42,7 @@ public enum Phase {
 
         HudsonNotificationProperty property = (HudsonNotificationProperty) run.getParent().getProperty(HudsonNotificationProperty.class);
         if ( property == null ){ return; }
-        
+
         for ( Endpoint target : property.getEndpoints()) {
             if ( isRun( target )) {
                 listener.getLogger().println( String.format( "Notifying endpoint '%s'", target ));
@@ -72,7 +81,7 @@ public enum Phase {
         String             rootUrl      = jenkins.getRootUrl();
         JobState           jobState     = new JobState();
         BuildState         buildState   = new BuildState();
-        ScmState           scmState     = new ScmState();
+        UserData           userData     = new UserData();
         Result             result       = run.getResult();
         ParametersAction   paramsAction = run.getAction(ParametersAction.class);
         EnvVars            environment  = run.getEnvironment( listener );
@@ -85,8 +94,11 @@ public enum Phase {
         buildState.setNumber( run.number );
         buildState.setUrl( run.getUrl());
         buildState.setPhase( this );
-        buildState.setScm( scmState );
+        buildState.setUserData( userData );
         buildState.setLog( log );
+        buildState.setStartedAt( run.getTimeInMillis() );
+        buildState.setDuration( run.getDuration() );
+        buildState.setFinishedAt( run.getTimeInMillis() + run.getDuration() );
 
         if ( result != null ) {
             buildState.setStatus(result.toString());
@@ -96,7 +108,10 @@ public enum Phase {
             buildState.setFullUrl(rootUrl + run.getUrl());
         }
 
+        
         buildState.updateArtifacts( job, run );
+        buildState.updateScmChanges( run );
+        buildState.updateTestResults( run );
 
         if ( paramsAction != null ) {
             EnvVars env = new EnvVars();
@@ -108,16 +123,24 @@ public enum Phase {
             buildState.setParameters(env);
         }
 
-        if ( environment.get( "GIT_URL" ) != null ) {
-            scmState.setUrl( environment.get( "GIT_URL" ));
-        }
-
-        if ( environment.get( "GIT_BRANCH" ) != null ) {
-            scmState.setBranch( environment.get( "GIT_BRANCH" ));
-        }
-
-        if ( environment.get( "GIT_COMMIT" ) != null ) {
-            scmState.setCommit( environment.get( "GIT_COMMIT" ));
+        /**
+         * Read a properties file if it exists and add it to the data.
+         * @TODO make the filename configurable
+         * @TODO Move this into an update Method (like artifacts) 
+         */
+        FilePath propsFile = new FilePath((( AbstractBuild ) run ).getWorkspace(), "notification.properties");
+        if ( propsFile.exists() ) {
+            Properties props = new Properties();
+            props.load( propsFile.read());
+            Map<String, String> key_pairs = new HashMap<String, String>();
+            for (String key : props.stringPropertyNames()) {
+                String value = props.getProperty(key);
+                listener.getLogger().println( String.format("The grade in " + key + " is: " + value));
+                key_pairs.put( key, value );
+            }
+            userData.setUserData( key_pairs );
+        } else {
+            listener.getLogger().println( String.format("notification.properties does not exist" ));
         }
 
         return jobState;
@@ -127,8 +150,9 @@ public enum Phase {
         StringBuilder log = new StringBuilder("");
         Integer loglines = target.getLoglines();
 
-        if (null == loglines) {
-                return log;
+        if (null == loglines || loglines == 0) {
+            log.append("Log is not available or you have requested no log data.");
+            return log;
         }
 
         try {

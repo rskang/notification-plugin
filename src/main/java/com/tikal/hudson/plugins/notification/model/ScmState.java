@@ -16,39 +16,67 @@ package com.tikal.hudson.plugins.notification.model;
 
 public class ScmState
 {
-    private String url;
+    private String author;
+    
+    private String commitId;
+        
+    private String commitMsg;
+   
+    private long timestamp;
 
-    private String branch;
-
-    private String commit;
-
-    public String getUrl ()
-    {
-        return url;
+    /**
+     * @return the author
+     */
+    public String getAuthor() {
+        return author;
     }
 
-    public void setUrl ( String url )
-    {
-        this.url = url;
+    /**
+     * @param author the author to set
+     */
+    public void setAuthor(String author) {
+        this.author = author;
     }
 
-    public String getBranch ()
-    {
-        return branch;
+    /**
+     * @return the commitId
+     */
+    public String getCommitId() {
+        return commitId;
     }
 
-    public void setBranch ( String branch )
-    {
-        this.branch = branch;
+    /**
+     * @param commitId the commitId to set
+     */
+    public void setCommitId(String commitId) {
+        this.commitId = commitId;
     }
 
-    public String getCommit ()
-    {
-        return commit;
+    /**
+     * @return the commitMsg
+     */
+    public String getCommitMsg() {
+        return commitMsg;
     }
 
-    public void setCommit ( String commit )
-    {
-        this.commit = commit;
+    /**
+     * @param commitMsg the commitMsg to set
+     */
+    public void setCommitMsg(String commitMsg) {
+        this.commitMsg = commitMsg;
+    }
+
+    /**
+     * @return the timestamp
+     */
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    /**
+     * @param timestamp the timestamp to set
+     */
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
     }
 }

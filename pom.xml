@@ -63,8 +63,13 @@
 			<dependency>
 			  <groupId>org.apache.maven.scm</groupId>
 			  <artifactId>maven-scm-provider-gitexe</artifactId>
-			  <version>1.8.1</version>
+			  <version>1.9.2</version>
 			</dependency>
+                        <dependency>
+                            <groupId>org.apache.maven.scm</groupId>
+                            <artifactId>maven-scm-providers-svn</artifactId>
+                            <version>1.9.2</version>
+                        </dependency>
 		   </dependencies>
 		  </plugin>
            </plugins>
@@ -84,6 +89,11 @@
             <artifactId>s3</artifactId>
             <version>0.6</version>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>subversion</artifactId>
+            <version>2.5</version>
         </dependency>
     </dependencies>
 

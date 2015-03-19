@@ -20,6 +20,11 @@ import hudson.model.Job;
 import hudson.model.Run;
 import hudson.plugins.s3.Entry;
 import hudson.plugins.s3.S3BucketPublisher;
+import hudson.scm.ChangeLogSet;
+import hudson.tasks.junit.TestResult;
+import hudson.tasks.junit.TestResultAction;
+import hudson.tasks.test.AbstractTestResultAction;
+
 import hudson.util.DescribableList;
 import jenkins.model.Jenkins;
 
@@ -43,11 +48,22 @@ public class BuildState {
 
     private String displayName;
 
-    private ScmState scm;
+    private UserData userData;
 
     private Map<String, String> parameters;
 
     private StringBuilder log;
+
+    // xUnit test results
+    private int totalCount;
+    private int failCount;
+    private int skipCount;
+    private int passCount;
+
+    // Store the timestamp data.
+    private long startedAt;
+    private long duration;
+    private long finishedAt;
 
     /**
      *  Map of artifacts: file name => Map of artifact locations ( location name => artifact URL )
@@ -60,7 +76,26 @@ public class BuildState {
      *     archive: http://localhost:8080/job/notification-plugin/78/artifact/target/notification.jar
      */
     private final Map<String, Map<String, String>> artifacts = new HashMap<String, Map<String, String>>();
-
+    
+    /**
+     *  Map of changes resulting in JSON data like this:
+     *  ---
+     *  changes:
+     *      "2417": {
+     *          "author": "Daniel Laird",
+     *          "commit_id": "2417",
+     *          "commit_msg": "Yet more hacking<br>",
+     *          "timestamp": 1426762953675
+     *      },
+     *      "2418": {
+     *          "author": "Daniel Laird",
+     *          "commit_id": "2418",
+     *          "commit_msg": "Yet more reverting<br>",
+     *          "timestamp": 1426762984307
+     *      }
+     */
+    private final Map<String, ScmState> changes = new HashMap<String, ScmState>();
+    
     public int getNumber() {
         return number;
     }
@@ -120,15 +155,15 @@ public class BuildState {
     public String getDisplayName() {
         return displayName;
     }
-
-    public ScmState getScm ()
+    
+    public UserData getUserData ()
     {
-        return scm;
+        return userData;
     }
 
-    public void setScm ( ScmState scmState )
+    public void setUserData ( UserData userData )
     {
-        this.scm = scmState;
+        this.userData = userData;
     }
 
     public StringBuilder getLog() {
@@ -139,6 +174,85 @@ public class BuildState {
         this.log = log;
     }
 
+    public int getPassCount() {
+        return this.passCount;
+    }
+
+    public int getSkipCount() {
+        return this.skipCount;
+    }
+
+    public int getFailCount() {
+        return this.failCount;
+    }
+
+    public int getTotalCount() {
+        return this.totalCount;
+    }
+
+    public void updateTestResults(Run run) {
+        TestResultAction tra = run.getAction(TestResultAction.class);
+        if (tra != null) {
+            this.totalCount = tra.getTotalCount();
+            this.failCount = tra.getFailCount();
+            this.skipCount = tra.getSkipCount();
+            this.passCount = totalCount - failCount - skipCount;
+        }
+    }
+
+    public void setStartedAt(long startedAtMillis) {
+        startedAt = startedAtMillis;
+    }
+
+    public long getStartedAt() {
+        return startedAt;
+    }
+
+    public void setDuration(long durationMillis) {
+        duration = durationMillis;
+    }
+
+    public long getDuration() {
+        return duration;
+    }
+
+    public void setFinishedAt(long finishedAtMillis) {
+        finishedAt = finishedAtMillis;
+    }
+
+    public long getFinishedAt() {
+        return finishedAt;
+    }
+    
+    /**
+     * Updates changes with the change entries.
+     */
+    public void updateScmChanges ( Run run )
+    {
+        ChangeLogSet<? extends ChangeLogSet.Entry> changeSet = (( AbstractBuild ) run ).getChangeSet();
+        if (!changeSet.isEmptySet()) {
+            for ( Object o : changeSet.getItems()) {
+                ChangeLogSet.Entry entry = (ChangeLogSet.Entry) o;
+                updateChanges(entry);
+            }
+        }
+    }   
+    
+    /**
+     * Add the entry to the changes Map.
+     */
+    private void updateChanges( ChangeLogSet.Entry entry )
+    {              
+        if ( ! changes.containsKey( entry.getCommitId() )) {
+            ScmState change = new ScmState();
+            change.setAuthor(entry.getAuthor().toString());
+            change.setCommitId(entry.getCommitId());
+            change.setCommitMsg(entry.getMsgEscaped());
+            change.setTimestamp(entry.getTimestamp());
+            changes.put( entry.getCommitId(), change);               
+        }
+    }
+    
     /**
      * Updates artifacts Map with S3 links, if corresponding publisher is available.
      */
@@ -147,7 +261,6 @@ public class BuildState {
         updateArchivedArtifacts( run );
         updateS3Artifacts( job, run );
     }
-
 
     private void updateArchivedArtifacts ( Run run )
     {
@@ -161,7 +274,6 @@ public class BuildState {
             updateArtifact( a.getFileName(), "archive", artifactUrl );
         }
     }
-
 
     private void updateS3Artifacts ( Job job, Run run )
     {
@@ -194,7 +306,6 @@ public class BuildState {
             updateArtifact( fileName, "s3", fileUrl );
         }
     }
-
 
     /**
      * Updates an artifact URL.
