@@ -88,6 +88,11 @@ public enum Phase {
         StringBuilder      log          = this.getLog(run, target);
 
         jobState.setName( job.getName());
+        String fullName = job.getFullDisplayName();
+        // This is to replace the potential characters used by CloudBees folder
+        // plugin.
+        String cleanStr = fullName.replaceAll(" \u00BB ", "/");
+        jobState.setFullName( cleanStr );
         jobState.setUrl( job.getUrl());
         jobState.setBuild( buildState );
 

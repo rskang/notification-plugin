@@ -19,6 +19,8 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 public class JobState {
 
     private String name;
+    
+    private String fullName;
 
     private String url;
 
@@ -46,5 +48,19 @@ public class JobState {
 
     public void setBuild(BuildState build) {
         this.build = build;
+    }
+
+    /**
+     * @return the fullName
+     */
+    public String getFullName() {
+        return fullName;
+    }
+
+    /**
+     * @param fullName the fullName to set
+     */
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
 }
